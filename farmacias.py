@@ -37,11 +37,11 @@ def transform_data():
             # Save the data as a csv file in temp/csv folder
             data.to_csv(f'./temp/raw_csv/{file_name}.csv', index=False)
             # Move files from archivos to temp/processed_excel if file_name not "No encontrado"
-            os.rename(f'./Archivos/{file}', f'./temp/processed_excel/{file}')
+            # os.rename(f'./Archivos/{file}', f'./temp/processed_excel/{file}')
 
 
 def name_drog(data, name):
-    data_iloc0 = set([x for x in data.iloc[0]])
+    data_iloc1 = set([x for x in data.iloc[1]])
     data_iloc5 = set([x for x in data.iloc[5]])
     data_iloc6 = set([x for x in data.iloc[6]])
     data_iloc7 = set([x for x in data.iloc[7]])
@@ -50,14 +50,14 @@ def name_drog(data, name):
     data_iloc11 = set([x for x in data.iloc[11]])
     data_columns = set([x for x in data.columns])
 
-    if BIOMEDIC.issubset(data_iloc8):
-        return "Dismeven"
+    if TIARES.issubset(data_iloc1):
+        return "Tiares"
     else:
         return "No encontrado"
 
 def process_tiares():
     # Get raw data from ./temp/raw_csv/Tiares.csv
-    data = pd.read_csv('./temp/raw_csv/Cobeca.csv')
+    data = pd.read_csv('./temp/raw_csv/Tiares.csv')
     # New headers
     new_headers = data.iloc[1]
     # Drop the first 6 rows
@@ -66,6 +66,24 @@ def process_tiares():
     data.columns = new_headers
     cols_to_use = ['Producto Farmacéutico', 'F. V.', 'PRECIO UNITARIO $', 'Descuento Promocional']
     data = data[cols_to_use]
+    # Drop products agotados
+    data = data[data['F. V.'] != 'Agotado']
+    # Drop Nan price
+    data.dropna(subset=['PRECIO UNITARIO $'], inplace=True)
+    data['PRECIO UNITARIO $'] = data['PRECIO UNITARIO $'].str.replace(',', '.').astype(float)
+    data['Descuento Promocional'] = data['Descuento Promocional'].str.replace(',', '.').astype(float)
+    data['Descuento Promocional'] = data['Descuento Promocional'].replace(np.nan, 0)
+    # Discount
+    data['PRECIO UNITARIO $'] = data['PRECIO UNITARIO $'] - data['PRECIO UNITARIO $']*data['Descuento Promocional']
+    data['PRECIO UNITARIO $'] = data['PRECIO UNITARIO $'].round(2)
+    # Drop unnecessay cols
+    # Drop the column 'OFERTAS'
+    data = data.drop('F. V.', axis=1)
+    # Drop the column 'existencia'
+    data = data.drop('Descuento Promocional', axis=1)
+    data.to_csv('./temp/processed_csv/Tiares.csv', index=False)
+    
+
 
 def process_cobeca():
     # Get raw data from ./temp/raw_csv/Cobeca.csv
@@ -487,3 +505,5 @@ def delete_content_folder(folder):
                 shutil.rmtree(file_path)
         except Exception as e:
             print('Failed to delete %s. Reason: %s' % (file_path, e))
+
+process_tiares()
