@@ -7,8 +7,8 @@ PLUS_MEDICAL = {'MONTO $', 'PRECIO POR PRESENTACION $', 'PEDIDO ', 'UNIDAD ', 'L
 SAJJA_MEDIC = {'CÓDIGO', 'PRECIO X BLISTER/UNIDAD', 'Pedido ', 'Total', 'DESCRIPCIÓN DEL PRODUCTO', 'DATOS', 'FECHA DE VCTO.'}
 
 
-df = pd.read_excel('./Pruebas/Hoja de Pedido $ 24-01-2023.xlsx', engine='openpyxl')
-data_iloc = set(x for x in df.iloc[20])
+df = pd.read_excel('./Pruebas/$ DISTRIBUIDORES Mcy 10-01-2023 BIOMEDIC LAB.xlsx', engine='openpyxl')
+data_iloc = set(x for x in df.iloc[10])
 # print(data_iloc.difference(distuca))
 # print(distuca.difference(data_iloc))
 df.to_csv('Try.csv')

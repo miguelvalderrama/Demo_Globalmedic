@@ -42,16 +42,12 @@ def transform_data():
 
 def name_drog(data, name):
     data_iloc1 = set([x for x in data.iloc[1]])
-    data_iloc5 = set([x for x in data.iloc[5]])
-    data_iloc6 = set([x for x in data.iloc[6]])
-    data_iloc7 = set([x for x in data.iloc[7]])
-    data_iloc8 = set([x for x in data.iloc[8]])
-    data_iloc9 = set([x for x in data.iloc[9]])
-    data_iloc11 = set([x for x in data.iloc[11]])
-    data_columns = set([x for x in data.columns])
+    data_iloc10 = set([x for x in data.iloc[10]])
 
     if TIARES.issubset(data_iloc1):
         return "Tiares"
+    elif BIOMEDIC.issubset(data_iloc10):
+        return "Biomedic"
     else:
         return "No encontrado"
 
@@ -81,9 +77,20 @@ def process_tiares():
     data = data.drop('F. V.', axis=1)
     # Drop the column 'existencia'
     data = data.drop('Descuento Promocional', axis=1)
+    # Save the data as a csv file in temp/processed_csv folder
     data.to_csv('./temp/processed_csv/Tiares.csv', index=False)
     
-
+def process_biomedic():
+    # Get raw data from ./temp/raw_csv/Biomedic.csv
+    data = pd.read_csv('./temp/raw_csv/Biomedic.csv')
+    # New headers
+    new_headers = data.iloc[10]
+    # Drop the first 6 rows
+    data = data[11:]
+    # Rename the headers
+    data.columns = new_headers
+    # Save the data as a csv file in temp/processed_csv folder
+    data.to_csv('./temp/processed_csv/Biomedic.csv', index=False)
 
 def process_cobeca():
     # Get raw data from ./temp/raw_csv/Cobeca.csv
@@ -435,28 +442,6 @@ def prepare_final_csv(method='off'):
                 process_gracitana_medicinas()
             elif file_name == 'Gracitana Material Medico':
                 process_gracitana_material_medico()
-            elif file_name == 'Insuaminca':
-                process_insuaminca()
-            elif file_name == 'Vitalclinic':
-                process_vitalclinic()
-            elif file_name == 'Cobeca':
-                process_cobeca()
-            elif file_name == 'Drolanca':
-                process_drolanca()
-            elif file_name == 'Dismeven':
-                process_dismeven()
-            elif file_name == 'Drosalud':
-                process_drosalud()
-            elif file_name == 'Drolvilla Nacionales':
-                process_drolvilla_nacionales()
-            elif file_name == 'Drolvilla Importados':
-                process_drolvilla_importados()
-            elif file_name == 'Unipharma':
-                process_unipharma()
-            elif file_name == 'Dronena':
-                process_dronena()
-            elif file_name == 'Distuca':
-                process_distuca()
             else:
                 list_not_found.append(file_name)
     # If not files in ('./temp/processed_csv/') folder break the function
@@ -506,4 +491,5 @@ def delete_content_folder(folder):
         except Exception as e:
             print('Failed to delete %s. Reason: %s' % (file_path, e))
 
-process_tiares()
+transform_data()
+process_biomedic()
