@@ -9,8 +9,8 @@ import datetime
 from tkinter import ttk, messagebox, filedialog
 from PIL import ImageTk, Image
 
-droguerias = [['Cobeca', 'Dronena', 'Drolanca', 'Vitalclinic'], 
-            ['Insuaminca', 'Distuca', 'Gracitana Medicinas', 'Gracitana Material Medico'],
+droguerias = [['Biomedic', 'Sajja Medic', 'Tiares', 'Marquez y Koteich'], 
+            ['Plus Medical', 'Prueba', 'Gracitana Medicinas', 'Gracitana Material Medico'],
             ['Drolvilla Nacionales', 'Drolvilla Importados','Unipharma','Drosalud']]
 
 customtkinter.set_appearance_mode("Dark")  # Modes: "System" (standard), "Dark", "Light"
@@ -63,7 +63,7 @@ class App(customtkinter.CTk):
         self.tasa_dia = self.config_file['tasa']
 
         self.style = ttk.Style()
-        self.style.configure("Treeview", font=("Roboto", -11))
+        self.style.configure("Treeview", font=("Roboto", -12))
         self.style.configure("Treeview.Heading", font=("Roboto", -12, "bold"))
 
         # Full size window
@@ -146,22 +146,20 @@ class App(customtkinter.CTk):
         self.frame_descrip.grid_columnconfigure((0,1,2,3), weight=1)
         self.frame_descrip.grid_rowconfigure((0,1,2), weight=1)
 
-        self.dic_trees_descrip = {}
+
         self.ls_trees_descrip = []
-        counter = 0
         for row_n, grupo in enumerate(droguerias):
             for col_n, drog in enumerate(grupo):
                 self.tree_descrip = ttk.Treeview(self.frame_descrip, columns=(drog, 'Precio'), show='headings')
                 self.tree_descrip.grid(row=row_n, column=col_n, sticky='nswe', pady=3, padx=2)
                 self.tree_descrip.heading(drog, text=drog)
-                self.tree_descrip.heading('Precio', text='Precio')
+                self.tree_descrip.column(drog, width=300)
+                self.tree_descrip.heading('Precio', text='Precio $')
                 self.tree_descrip.column('Precio', width=40, anchor='center')
                 self.ls_trees_descrip.append((self.tree_descrip, drog))
-                self.dic_trees_descrip[counter] = self.tree_descrip
                 # Configure treeview tag colors
                 self.tree_descrip.tag_configure('Even', background='lightgray')
                 self.tree_descrip.tag_configure('Odd', background='white')
-                counter +=1
         
         for tree in self.ls_trees_descrip:
             tree[0].bind("<Double-1>", self.make_lambda(tree[0]))
@@ -181,7 +179,7 @@ class App(customtkinter.CTk):
     def show_product_full_name(self, event, tree):
         item = tree.selection()[0]
         values = tree.item(item, "values")
-        messagebox.showinfo('Producto', f'{values[0]}\nBs. {values[1]}\n$. {round(float(values[1])/self.tasa_dia, ndigits=2)}\n{values[2]}')
+        messagebox.showinfo('Producto', f'{values[0]}\n$. {values[1]}\nBs. {round(float(values[1])*float(self.tasa_dia), ndigits=2)}\n{values[2]}')
 
     '''def config(self):
         self.config_window = customtkinter.CTkToplevel(self)
@@ -319,6 +317,7 @@ class App(customtkinter.CTk):
         except Exception as error:
             messagebox.showerror('Error', error)
         else:
+            self.save_last_update()
             self.not_found_drogs()
             self.update_window.destroy()
             messagebox.showinfo('ACTUALIZADO', 'Actualizacion exitosa!')
@@ -351,7 +350,7 @@ class App(customtkinter.CTk):
         with open("config.json", "w") as f:
             json.dump(self.config_file, f, indent=4)
         # Update the label
-        self.label_last_update.configure(text="Ultima actualización: \n" + self.config_file["last_update"])
+        self.label_last_update.configure(text="Actualizado:\n" + self.config_file["last_update"])
 
     def not_found_drogs(self):
         # Open a new window

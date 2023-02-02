@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 import os
+import PyPDF2
 import sqlite3
 import shutil
 
@@ -41,13 +42,21 @@ def transform_data():
 
 
 def name_drog(data, name):
-    data_iloc1 = set([x for x in data.iloc[1]])
-    data_iloc10 = set([x for x in data.iloc[10]])
+    data_iloc1 = set(x for x in data.iloc[1])
+    data_iloc6 = set(x for x in data.iloc[6])
+    data_iloc10 = set(x for x in data.iloc[10])
+    data_iloc20 = set(x for x in data.iloc[20])
 
     if TIARES.issubset(data_iloc1):
         return "Tiares"
+    elif KOTEICH.issubset(data_iloc6):
+        return "Koteich"
     elif BIOMEDIC.issubset(data_iloc10):
         return "Biomedic"
+    elif SAJJA_MEDIC.issubset(data_iloc20):
+        return "Sajja_Medic"
+    elif PLUS_MEDICAL.issubset(data_iloc20):
+        return "Plus_Medical"
     else:
         return "No encontrado"
 
@@ -66,6 +75,7 @@ def process_tiares():
     data = data[data['F. V.'] != 'Agotado']
     # Drop Nan price
     data.dropna(subset=['PRECIO UNITARIO $'], inplace=True)
+    data['Producto Farmacéutico'] = data['Producto Farmacéutico'].str.replace('\n', ' ')
     data['PRECIO UNITARIO $'] = data['PRECIO UNITARIO $'].str.replace(',', '.').astype(float)
     data['Descuento Promocional'] = data['Descuento Promocional'].str.replace(',', '.').astype(float)
     data['Descuento Promocional'] = data['Descuento Promocional'].replace(np.nan, 0)
@@ -73,10 +83,13 @@ def process_tiares():
     data['PRECIO UNITARIO $'] = data['PRECIO UNITARIO $'] - data['PRECIO UNITARIO $']*data['Descuento Promocional']
     data['PRECIO UNITARIO $'] = data['PRECIO UNITARIO $'].round(2)
     # Drop unnecessay cols
+    data.dropna(subset=['F. V.'], inplace=True)
     # Drop the column 'OFERTAS'
     data = data.drop('F. V.', axis=1)
     # Drop the column 'existencia'
     data = data.drop('Descuento Promocional', axis=1)
+    data = data.rename(columns={'Producto Farmacéutico': 'Descripcion', 'PRECIO UNITARIO $': 'Precio'})
+    data['Proveedor'] = 'Tiares'
     # Save the data as a csv file in temp/processed_csv folder
     data.to_csv('./temp/processed_csv/Tiares.csv', index=False)
     
@@ -89,338 +102,63 @@ def process_biomedic():
     data = data[11:]
     # Rename the headers
     data.columns = new_headers
+    cols_to_use = ['DESCRIPCIÓN DEL PRODUCTO', 'PRECIO UNIT. $']
+    data = data[cols_to_use]
+    data = data.rename(columns={'DESCRIPCIÓN DEL PRODUCTO': 'Descripcion', 'PRECIO UNIT. $': 'Precio'})
+    data.dropna(subset=['Precio'], inplace=True)
+    data['Proveedor'] = 'Biomedic'
     # Save the data as a csv file in temp/processed_csv folder
     data.to_csv('./temp/processed_csv/Biomedic.csv', index=False)
 
-def process_cobeca():
-    # Get raw data from ./temp/raw_csv/Cobeca.csv
-    data = pd.read_csv('./temp/raw_csv/Cobeca.csv')
+def process_koteich():
+    # Get raw data from ./temp/raw_csv/Koteich.csv
+    data = pd.read_csv('./temp/raw_csv/Koteich.csv')
     # New headers
     new_headers = data.iloc[6]
     # Drop the first 6 rows
     data = data[7:]
     # Rename the headers
     data.columns = new_headers
-    cols_to_use = ['Descripción del Artículo', 'Precio Mayoreo', 'OFERTAS', 'existencia', 'Cod. Ind.']
+    cols_to_use = ['Descripcion', 'Precio']
     data = data[cols_to_use]
-    # Replace - with 0 in the column 'OFERTAS'
-    data['OFERTAS'] = data['OFERTAS'].replace('-', 0)
-    # Transform precio mayoreo and ofertas to float
-    data['Precio Mayoreo'] = data['Precio Mayoreo'].str.replace(',', '.').astype(float)
-    data['OFERTAS'] = data['OFERTAS'].str.replace('%', '')
-    data['OFERTAS'] = data['OFERTAS'].str.replace(',', '.').astype(float)
-    # if ofertas is empty, then ofertas = 0
-    data['OFERTAS'] = data['OFERTAS'].replace(np.nan, 0)
-    # If Precios Mayoreo is 0.01 or less, drop the row
-    data = data[data['Precio Mayoreo'] > 0.99]
-    # If existencia is 0, drop the row
-    data = data[data['existencia'] != 0]
-    # Precio Mayoreo * OFERTAS if OFERTAS is not 0 if OFERTAS is 0, Precio Mayoreo
-    data['Precio Mayoreo'] = np.where(data['OFERTAS'] != 0, data['Precio Mayoreo'] - (data['Precio Mayoreo']*(data['OFERTAS']/100)), data['Precio Mayoreo'])
-    data['Precio Mayoreo'] = data['Precio Mayoreo'] - data['Precio Mayoreo']*0.01
-    # Round the column 'Precio Mayoreo' to 2 decimals
-    data['Precio Mayoreo'] = data['Precio Mayoreo'].round(2)
-    # Drop the column 'OFERTAS'
-    data = data.drop('OFERTAS', axis=1)
-    # Drop the column 'existencia'
-    data = data.drop('existencia', axis=1)
-    # Rename the columns
-    data = data.rename(columns={'Cod. Ind.': 'Cod. Bar'})
-    # Add column 'Proveedor'
-    data['Proveedor'] = 'Cobeca'
-    # Order by Descripción del Artículo
-    data = data.sort_values(by=['Descripción del Artículo'])
+    data.dropna(subset=['Precio'], inplace=True)
+    data['Proveedor'] = 'Marquez y Koteich'
     # Save the data as a csv file in temp/processed_csv folder
-    data.to_csv('./temp/processed_csv/Cobeca.csv', index=False)
+    data.to_csv('./temp/processed_csv/Koteich.csv', index=False)
 
-def process_dronena():
-    # Get raw data from ./temp/raw_csv/Cobeca.csv
-    data = pd.read_csv('./temp/raw_csv/Dronena.csv')
-    cols_to_use = ['Descripción', 'Precio promo(Referencial)', 'Cód. barra']
-    data = data[cols_to_use]
-    # Rename the columns
-    data = data.rename(columns={'Descripción': 'Descripción del Artículo', 'Precio promo(Referencial)': 'Precio Mayoreo', 'Cód. barra': 'Cod. Bar'})
-    # Add column 'Proveedor'
-    data['Proveedor'] = 'Dronena'
-    # Save the data as a csv file in temp/processed_csv folder
-    data.to_csv('./temp/processed_csv/Dronena.csv', index=False)
-
-def process_dismeven():
-    # Get raw data from ./temp/raw_csv/Dismeven.csv
-    data = pd.read_csv('./temp/raw_csv/Dismeven.csv')
+def process_sajja():
+    # Get raw data from ./temp/raw_csv/Sajja_Medic.csv
+    data = pd.read_csv('./temp/raw_csv/Sajja_Medic.csv')
     # New headers
-    new_headers = data.iloc[8]
-    # Drop the first 9 rows
-    data = data[9:]
+    new_headers = data.iloc[20]
+    # Drop the first 6 rows
+    data = data[21:]
     # Rename the headers
     data.columns = new_headers
-    cols_to_use = ['DESCRIPCION PRODUCTO', ' EQUIVALENTE EN BS']
+    cols_to_use = ['DESCRIPCIÓN DEL PRODUCTO', 'PRECIO X BLISTER/UNIDAD']
     data = data[cols_to_use]
-    # Transform 'EQUIVALENTE EN BS' to float
-    data[' EQUIVALENTE EN BS'] = data[' EQUIVALENTE EN BS'].str.replace(',', '.').astype(float)
-    # Round the column 'EQUIVALENTE EN BS' to 2 decimals
-    data[' EQUIVALENTE EN BS'] = data[' EQUIVALENTE EN BS'].round(2)
-    # Rename the columns
-    data = data.rename(columns={'DESCRIPCION PRODUCTO': 'Descripción del Artículo', ' EQUIVALENTE EN BS': 'Precio Mayoreo'})
-    # Add column 'Proveedor'
-    data['Proveedor'] = 'Dismeven'
+    data = data.rename(columns={'DESCRIPCIÓN DEL PRODUCTO': 'Descripcion', 'PRECIO X BLISTER/UNIDAD': 'Precio'})
+    data.dropna(subset=['Precio'], inplace=True)
+    data['Proveedor'] = 'Sajja Medic'
     # Save the data as a csv file in temp/processed_csv folder
-    data.to_csv('./temp/processed_csv/Dismeven.csv', index=False)
-
-def process_distuca():
-    # Get raw data from ./temp/raw_csv/Dismeven.csv
-    data = pd.read_csv('./temp/raw_csv/Distuca.csv')
+    data.to_csv('./temp/processed_csv/Sajja_Medic.csv', index=False)
+    
+def process_plus_medical():
+    # Get raw data from ./temp/raw_csv/Plus_Medical.csv
+    data = pd.read_csv('./temp/raw_csv/Plus_Medical.csv')
     # New headers
-    new_headers = data.iloc[9]
-    # Drop the first 9 rows
-    data = data[10:]
+    new_headers = data.iloc[20]
+    # Drop the first 6 rows
+    data = data[21:]
     # Rename the headers
     data.columns = new_headers
-    cols_to_use = ['DESCRIPCION', 'PRECIO BS', 'CODIGO DE BARRA']
+    cols_to_use = ['DESCRIPCIÓN', 'PRECIO UNITARIO $']
     data = data[cols_to_use]
-    data = data.dropna()
-    # Transform 'Precio Final' to float
-    data['PRECIO BS'] = data['PRECIO BS'].astype(float)
-    # Round the column 'PRECIO BS' to 2 decimals
-    data['PRECIO BS'] = data['PRECIO BS'].round(2)
-    # Rename the columns
-    data = data.rename(columns={'DESCRIPCION': 'Descripción del Artículo', 'PRECIO BS': 'Precio Mayoreo', 'CODIGO DE BARRA': 'Cod. Bar'})
-    # Add column 'Proveedor'
-    data['Proveedor'] = 'Distuca'
+    data = data.rename(columns={'DESCRIPCIÓN': 'Descripcion', 'PRECIO UNITARIO $': 'Precio'})
+    data.dropna(subset=['Precio'], inplace=True)
+    data['Proveedor'] = 'Plus Medical'
     # Save the data as a csv file in temp/processed_csv folder
-    data.to_csv('./temp/processed_csv/Distuca.csv', index=False)
-
-def process_drolanca():
-    # Get raw data from ./temp/raw_csv/Drolanca.csv
-    data = pd.read_csv('./temp/raw_csv/Drolanca.csv')
-    # New headers    
-    new_headers = data.iloc[5]
-    # Drop the first 10 rows
-    data = data[6:]
-    # Rename the headers
-    data.columns = new_headers
-    cols_to_use = ['Descripción del Material', 'Precio Final ', 'Codigo de Barras']
-    data = data[cols_to_use]
-    # Transform 'Precio Final' to float
-    data['Precio Final '] = data['Precio Final '].str.replace(',', '.').astype(float)
-    data['Precio Final '] = data['Precio Final ']-data['Precio Final ']*0.04
-    # Round the column 'Precio Final' to 2 decimals
-    data['Precio Final '] = data['Precio Final '].round(2)
-    # Rename the columns
-    data = data.rename(columns={'Descripción del Material': 'Descripción del Artículo', 'Precio Final ': 'Precio Mayoreo', 'Codigo de Barras': 'Cod. Bar'})
-    # Add column 'Proveedor'
-    data['Proveedor'] = 'Drolanca'
-    # Save the data as a csv file in temp/processed_csv folder
-    data.to_csv('./temp/processed_csv/Drolanca.csv', index=False)
-
-def process_gracitana_medicinas():
-    # Get raw data from ./temp/raw_csv/Gracitana Medicinas.csv
-    data = pd.read_csv('./temp/raw_csv/Gracitana Medicinas.csv')
-    # New headers
-    new_headers = data.iloc[11]
-    # Drop the first 12 rows
-    data = data[12:]
-    # Rename the headers
-    data.columns = new_headers
-    cols_to_use = ['NOMBRE', 'PRECIO']
-    data = data[cols_to_use]
-    # Rename the columns
-    data = data.rename(columns={'NOMBRE': 'Descripción del Artículo', 'PRECIO': 'Precio Mayoreo'})
-    # Add column 'Proveedor'
-    data['Proveedor'] = 'Gracitana Medicinas'
-    # Save the data as a csv file in temp/processed_csv folder
-    data.to_csv('./temp/processed_csv/Gracitana Medicinas.csv', index=False)
-
-def process_gracitana_material_medico():
-    # Get raw data from ./temp/raw_csv/Gracitana Material Medico.csv
-    data = pd.read_csv('./temp/raw_csv/Gracitana Material Medico.csv')
-    # New headers
-    new_headers = data.iloc[11]
-    # Drop the first 12 rows
-    data = data[12:]
-    # Rename the headers
-    data.columns = new_headers
-    cols_to_use = ['NOMBRE', 'PRECIO']
-    data = data[cols_to_use]
-    # Rename the columns
-    data = data.rename(columns={'NOMBRE': 'Descripción del Artículo', 'PRECIO': 'Precio Mayoreo'})
-    # Add column 'Proveedor'
-    data['Proveedor'] = 'Gracitana Material Medico'
-    # Save the data as a csv file in temp/processed_csv folder
-    data.to_csv('./temp/processed_csv/Gracitana Material Medico.csv', index=False)
-
-def process_insuaminca():
-    # Get raw data from ./temp/raw_csv/Insuaminca.csv
-    data = pd.read_csv('./temp/raw_csv/Insuaminca.csv')
-    # New headers
-    new_headers = data.iloc[8]
-    # Drop the first 9 rows
-    data = data[9:]
-    # Rename the headers
-    data.columns = new_headers
-    cols_to_use = ['DESCRIPCION', 'PRECIO', 'CODBARRA']
-    data = data[cols_to_use]
-    # Transform 'PRECIO' to float
-    data['PRECIO'] = data['PRECIO'].str.replace(',', '.').astype(float)
-    # Get a connection to the database
-    cursor, conn = connect_to_db()
-    # Get tasa de cambio
-    cursor.execute("SELECT precio_compra_moneda_nacional FROM tipo_moneda WHERE nombre_singular = 'DOLAR'")
-    tasa_cambio = cursor.fetchone()[0]
-    # Close the connection
-    conn.close()
-    # Transform 'PRECIO' to bolivares
-    data['PRECIO'] = data['PRECIO'] * float(tasa_cambio)
-    # Round the column 'PRECIO' to 2 decimals
-    data['PRECIO'] = data['PRECIO'].round(2)
-    # Rename the columns
-    data = data.rename(columns={'DESCRIPCION': 'Descripción del Artículo', 'PRECIO': 'Precio Mayoreo', 'CODBARRA': 'Cod. Bar'})
-    # Add column 'Proveedor'
-    data['Proveedor'] = 'Insuaminca'
-    # Save the data as a csv file in temp/processed_csv folder
-    data.to_csv('./temp/processed_csv/Insuaminca.csv', index=False)
-
-def process_vitalclinic():
-    # Get raw data from ./temp/raw_csv/Vitalclinic.csv
-    data = pd.read_csv('./temp/raw_csv/Vitalclinic.csv')
-    # New headers
-    new_headers = data.iloc[9]
-    # Drop the first 10 rows
-    data = data[10:]
-    # Rename the headers
-    data.columns = new_headers
-    cols_to_use = ['DESCRIPCION', 'PRECIO', 'COD BARRAS']
-    data = data[cols_to_use]
-    # Drop duplicated columns
-    data = data.loc[:,~data.columns.duplicated(keep='last')].copy()
-    # Transform 'PRECIO' to float
-    data['PRECIO'] = data['PRECIO'].str.replace(',', '.').astype(float)
-    # Get a connection to the database
-    cursor, conn = connect_to_db()
-    # Get tasa de cambio
-    cursor.execute("SELECT precio_compra_moneda_nacional FROM tipo_moneda WHERE nombre_singular = 'DOLAR'")
-    tasa_cambio = cursor.fetchone()[0]
-    # Close the connection
-    conn.close()
-    # Transform 'PRECIO' to bolivares
-    data['PRECIO'] = data['PRECIO'] * float(tasa_cambio)
-    # Round the column 'PRECIO' to 2 decimals
-    data['PRECIO'] = data['PRECIO'].round(2)
-    # Rename the columns
-    data = data.rename(columns={'DESCRIPCION': 'Descripción del Artículo', 'PRECIO': 'Precio Mayoreo', 'COD BARRAS': 'Cod. Bar'})
-    # Add column 'Proveedor'
-    data['Proveedor'] = 'Vitalclinic'
-    # Save the data as a csv file in temp/processed_csv folder
-    data.to_csv('./temp/processed_csv/Vitalclinic.csv', index=False)
-
-def process_drosalud():
-    # Get raw data from ./temp/raw_csv/Drosalud.csv
-    data = pd.read_csv('./temp/raw_csv/Drosalud.csv')
-    # New headers
-    new_headers = data.iloc[7]
-    # Drop the first 10 rows
-    data = data[8:]
-    # Rename the headers
-    data.columns = new_headers
-    cols_to_use = ['Descripción', 'PRECIO']
-    data = data[cols_to_use]
-    # Transform 'PRECIO' to float
-    data['PRECIO'] = data['PRECIO'].str.replace(',', '.').astype(float)
-    # Get a connection to the database
-    cursor, conn = connect_to_db()
-    # Get tasa de cambio
-    cursor.execute("SELECT precio_compra_moneda_nacional FROM tipo_moneda WHERE nombre_singular = 'DOLAR'")
-    tasa_cambio = cursor.fetchone()[0]
-    # Close the connection
-    conn.close()
-    # Transform 'PRECIO' to bolivares
-    data['PRECIO'] = data['PRECIO'] * float(tasa_cambio)
-    # Round the column 'PRECIO' to 2 decimals
-    data['PRECIO'] = data['PRECIO'].round(2)
-    # Rename the columns
-    data = data.rename(columns={'Descripción': 'Descripción del Artículo', 'PRECIO': 'Precio Mayoreo'})
-    # Add column 'Proveedor'
-    data['Proveedor'] = 'Drosalud'
-    # Save the data as a csv file in temp/processed_csv folder
-    data.to_csv('./temp/processed_csv/Drosalud.csv', index=False)
-
-def process_drolvilla_nacionales():
-    # Get raw data from ./temp/raw_csv/Drolvilla_nacionales.csv
-    data = pd.read_csv('./temp/raw_csv/Drolvilla Nacionales.csv')
-    # new_headers = data.iloc[0]
-    # # Drop the first 10 rows
-    # data = data[1:]
-    # # Rename the headers
-    # data.columns = new_headers
-    cols = ['nombre', 'precio']
-    data = data[cols]
-    # Rename the columns
-    data = data.rename(columns={'nombre': 'Descripción del Artículo', 'precio': 'Precio Mayoreo'})
-    # Get index where precio mayoreo = 'Sub - Total Factura:'
-    index = data[data['Precio Mayoreo'] == 'Sub - Total Factura:'].index
-    # Drop rows from index to the end
-    data = data[:index[0]-1]
-    # Add column 'Proveedor'
-    # Transform 'PRECIO' to float
-    data['Precio Mayoreo'] = data['Precio Mayoreo'].str.replace(',', '.').astype(float)
-    data['Proveedor'] = 'Drolvilla Nacionales'
-    # Save the data as a csv file in temp/processed_csv folder
-    data.to_csv('./temp/processed_csv/Drolvilla Nacional.csv', index=False)
-
-def process_drolvilla_importados():
-    # Get raw data from ./temp/raw_csv/Drolvilla_importados.csv
-    data = pd.read_csv('./temp/raw_csv/Drolvilla Importados.csv')
-    # New headers
-    new_headers = data.iloc[0]
-    # Drop the first row
-    data = data[1:]
-    # Rename the headers
-    data.columns = new_headers
-    cols_to_use = ['MEDICINA IMPORTADA SOLO PAGO EN DOLARES', 'COSTO EN BOLIVARES PARA FACTURACION']
-    data = data[cols_to_use]
-    # Transform 'PRECIO' to float
-    data['COSTO EN BOLIVARES PARA FACTURACION'] = data['COSTO EN BOLIVARES PARA FACTURACION'].str.replace(',', '.').astype(float)
-    # Round the column 'PRECIO' to 2 decimals
-    data['COSTO EN BOLIVARES PARA FACTURACION'] = data['COSTO EN BOLIVARES PARA FACTURACION'].round(2)
-    # Rename the columns
-    data = data.rename(columns={'MEDICINA IMPORTADA SOLO PAGO EN DOLARES': 'Descripción del Artículo', 'COSTO EN BOLIVARES PARA FACTURACION': 'Precio Mayoreo'})
-    # Add column 'Proveedor'
-    data['Proveedor'] = 'Drolvilla Importados'
-    # Save the data as a csv file in temp/processed_csv folder
-    data.to_csv('./temp/processed_csv/Drolvilla Importado.csv', index=False)
-
-def process_unipharma():
-    # Get raw data from ./temp/raw_csv/Unipharma.csv
-    data = pd.read_csv('./temp/raw_csv/Unipharma.csv')
-    # New headers
-    new_headers = data.iloc[8]
-    # Drop the first row
-    data = data[9:]
-    # Rename the headers
-    data.columns = new_headers
-    cols = ['DESCRIPCION', -0.05, 'CODIGO']
-    data = data[cols]
-    # Rename the columns
-    data = data.rename(columns={'DESCRIPCION': 'Descripción del Artículo', -0.05: 'Precio Mayoreo', 'CODIGO': 'Cod. Bar'})
-    # Drop rows where 'Precio Mayoreo' is 'NaN' or empty
-    data = data.dropna(subset=['Precio Mayoreo'])
-    # Transform 'PRECIO' to float
-    data['Precio Mayoreo'] = data['Precio Mayoreo'].astype(float)
-    # Connect to the database
-    cursor, conn = connect_to_db()
-    # Get tasa de cambio
-    cursor.execute("SELECT precio_compra_moneda_nacional FROM tipo_moneda WHERE nombre_singular = 'DOLAR'")
-    tasa_cambio = cursor.fetchone()[0]
-    # Close the connection
-    conn.close()
-    # Transform 'PRECIO' to bolivares
-    data['Precio Mayoreo'] = data['Precio Mayoreo'] * float(tasa_cambio)
-    # Round the column 'PRECIO' to 2 decimals
-    data['Precio Mayoreo'] = data['Precio Mayoreo'].round(2)
-    # Add column 'Proveedor'
-    data['Proveedor'] = 'Unipharma'
-    # Save the data as a csv file in temp/processed_csv folder
-    data.to_csv('./temp/processed_csv/Unipharma.csv', index=False)
+    data.to_csv('./temp/processed_csv/Plus_Medical.csv', index=False)
 
 def prepare_final_csv(method='off'):
     for folder in PATHS:
@@ -438,10 +176,16 @@ def prepare_final_csv(method='off'):
             # Get the name of the file
             file_name = file.split('.')[0]
             # Call the function that matches the file name
-            if file_name == 'Gracitana Medicinas':
-                process_gracitana_medicinas()
-            elif file_name == 'Gracitana Material Medico':
-                process_gracitana_material_medico()
+            if file_name == 'Tiares':
+                process_tiares()
+            elif file_name == 'Biomedic':
+                process_biomedic()
+            elif file_name == 'Koteich':
+                process_koteich()
+            elif file_name == 'Plus_Medical':
+                process_plus_medical()
+            elif file_name == 'Sajja_Medic':
+                process_sajja()
             else:
                 list_not_found.append(file_name)
     # If not files in ('./temp/processed_csv/') folder break the function
@@ -460,9 +204,7 @@ def prepare_final_csv(method='off'):
     # Concatenate all the dataframes in the list
     data = pd.concat(list_df, axis=0)
     # Drop nan rows
-    data = data.dropna(subset=['Descripción del Artículo', 'Precio Mayoreo'])
-    # Drop rows where Precios Mayoreo is 'PRECIO'
-    data = data[data['Precio Mayoreo'] != 'PRECIO']
+    data = data.dropna(subset=['Descripcion', 'Precio'])
     if method == 'off':
         # Save the data as a csv file in temp/final_csv folder
         data.to_csv('./temp/final_csv.csv', index=False)
@@ -473,7 +215,7 @@ def prepare_final_csv(method='off'):
         data = pd.concat([final_df, data], axis=0)
         # Drop duplicates
         #data.drop_duplicates(subset=['Cod. Bar'], keep='last', inplace=True)
-        data.drop_duplicates(subset=['Descripción del Artículo', 'Proveedor'], keep='last', inplace=True)
+        data.drop_duplicates(subset=['Descripcion', 'Precio'], keep='last', inplace=True)
         # Save the data as a csv file in temp/final_csv folder
         data.to_csv('./temp/final_csv.csv', index=False)
 
@@ -490,6 +232,3 @@ def delete_content_folder(folder):
                 shutil.rmtree(file_path)
         except Exception as e:
             print('Failed to delete %s. Reason: %s' % (file_path, e))
-
-transform_data()
-process_biomedic()

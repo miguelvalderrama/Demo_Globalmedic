@@ -17,12 +17,11 @@ def connect_to_db():
 def update_products_wt_description():
     # Open final_csv.csv
     df = pd.read_csv('./temp/final_csv.csv')
-    df.drop(columns=['Cod. Bar'], inplace=True)
     query = '''INSERT INTO visualizador_precios_drogueria_descripcion (descripcion, costo, drogueria)
-                VALUES (%s, %s, %s)'''
+                VALUES (?, ?, ?)'''
     values = []
     for idx, row in df.iterrows():
-        values.append((row['Descripción del Artículo'], row['Precio Mayoreo'], row['Proveedor']))
+        values.append((row['Descripcion'], row['Precio'], row['Proveedor']))
     cursor, conn = connect_to_db()
     cursor.execute("DELETE FROM visualizador_precios_drogueria_descripcion")
     conn.commit()
@@ -42,3 +41,5 @@ def create_table(query):
     cursor.execute(query)
     db.commit()
     db.close()
+
+update_products_wt_description()
