@@ -10,8 +10,8 @@ from tkinter import ttk, messagebox, filedialog
 from PIL import ImageTk, Image
 
 droguerias = [['Biomedic', 'Sajja Medic', 'Tiares', 'Marquez y Koteich'], 
-            ['Plus Medical', 'Prueba', 'Gracitana Medicinas', 'Gracitana Material Medico'],
-            ['Drolvilla Nacionales', 'Drolvilla Importados','Unipharma','Drosalud']]
+            ['Plus Medical', 'MC Medical', 'Prueba 1', 'Prueba 2'],
+            ['Prueba 3', 'Prueba 4', 'Prueba 5', 'Prueba 6']]
 
 customtkinter.set_appearance_mode("Dark")  # Modes: "System" (standard), "Dark", "Light"
 customtkinter.set_default_color_theme("blue")  # Themes: "blue" (standard), "green", "dark-blue"
@@ -101,13 +101,13 @@ class App(customtkinter.CTk):
                                                 width=60)
         self.button_1.grid(row=2, column=0, pady=10, padx=10)
 
-        self.historico_ico = ImageTk.PhotoImage(Image.open('./assets/historico.png'))
-        self.button_3 = customtkinter.CTkButton(master=self.frame_left,
-                                                text="",
-                                                image=self.historico_ico,
-                                                command="",
-                                                width=60)
-        self.button_3.grid(row=3, column=0, pady=10, padx=10)
+        # self.historico_ico = ImageTk.PhotoImage(Image.open('./assets/historico.png'))
+        # self.button_3 = customtkinter.CTkButton(master=self.frame_left,
+        #                                         text="",
+        #                                         image=self.historico_ico,
+        #                                         command="",
+        #                                         width=60)
+        # self.button_3.grid(row=3, column=0, pady=10, padx=10)
 
         self.label_last_update = customtkinter.CTkLabel(master=self.frame_left,
                                               text="Actualizado:\n" + self.ultima_actualizacion,
@@ -169,6 +169,11 @@ class App(customtkinter.CTk):
                                                 border_width=2,  # <- custom border_width
                                                 fg_color=None)  # <- no fg_color
         self.search_entry.grid(row=1, column=0, columnspan=2, rowspan=2,  pady=10, padx=20, sticky="we")
+
+        self.search_button = customtkinter.CTkButton(master=self.frame_right,
+                                                    text='Buscar',
+                                                    command=lambda: [self.search_and_update_tree(), self.search_entry.delete(0,'end')])
+        self.search_button.grid(row=1, column=2, columnspan=2, pady=10, padx=20, sticky="we")
 
         # set default values
         self.search_entry.bind("<Return>", lambda event: [self.search_and_update_tree(), self.search_entry.delete(0,'end')])
@@ -290,7 +295,7 @@ class App(customtkinter.CTk):
 
         # Create a checkbox
         self.checkbox_archivos = customtkinter.CTkCheckBox(self.update_frame,
-                                                        text='Agregar Archivos',
+                                                        text='Mantener archivos antiguos',
                                                         onvalue='on',
                                                         offvalue='off')
         self.checkbox_archivos.grid(row=4, column=0, columnspan=2, pady=10, padx=10, sticky="we")

@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 import os
+import re
 import PyPDF2
 import sqlite3
 import shutil
@@ -11,7 +12,7 @@ KOTEICH = {'Total', 'Moneda', 'Descripcion', 'Precio', 'Marca', 'Codigo', 'Canda
 PLUS_MEDICAL = {'MONTO $', 'PRECIO POR PRESENTACION $', 'PEDIDO ', 'UNIDAD ', 'LABORATORIO', 'PRINCIPIO ACTIVO', 'CONDICION ', 'DESCRIPCIÓN', 'F. VENCIMIENTO', 'REGISTRO SANITARIO', 'PRECIO UNITARIO $'}
 SAJJA_MEDIC = {'CÓDIGO', 'PRECIO X BLISTER/UNIDAD', 'Pedido ', 'Total', 'DESCRIPCIÓN DEL PRODUCTO', 'DATOS', 'FECHA DE VCTO.'}
 
-PATHS = ['./temp/processed_csv', './temp/raw_csv']
+PATHS = ['./temp/processed_csv', './temp/raw_csv', './temp/processed_excel']
 './temp/processed_excel'
 
 def connect_to_db():
@@ -28,20 +29,60 @@ def transform_data():
     raw_data = os.listdir('./Archivos')
     # Iterate over the raw data
     for file in raw_data:
-        if file.endswith('.xlsx'):
-            data = pd.read_excel(f'./Archivos/{file}', engine='openpyxl')
-        elif file.endswith('.xls'):
-            data = pd.read_excel(f'./Archivos/{file}', engine='xlrd')
-        # Get file name
-        file_name = name_drog(data, file.split('.')[0])
+        if file.endswith(('.xlsx', '.xls')):
+            if file.endswith('.xlsx'):
+                data = pd.read_excel(f'./Archivos/{file}', engine='openpyxl')
+            elif file.endswith('.xls'):
+                data = pd.read_excel(f'./Archivos/{file}', engine='xlrd')
+            # Get file name
+            file_name = name_drog_excel(data)
+        elif file.endswith('.pdf'):
+            name_drog_pdf(f'./Archivos/{file}')
         if file_name != "No encontrado":
             # Save the data as a csv file in temp/csv folder
             data.to_csv(f'./temp/raw_csv/{file_name}.csv', index=False)
             # Move files from archivos to temp/processed_excel if file_name not "No encontrado"
-            # os.rename(f'./Archivos/{file}', f'./temp/processed_excel/{file}')
+            os.rename(f'./Archivos/{file}', f'./temp/processed_excel/{file}')
 
 
-def name_drog(data, name):
+def name_drog_pdf(file):
+    # creating a pdf file object
+    pdfFileObj = open(file, 'rb')
+    # creating a pdf reader object
+    pdfReader = PyPDF2.PdfReader(pdfFileObj)
+    # creating a page object
+    pageObj = pdfReader.pages[0]
+    # extracting text from page
+    text = pageObj.extract_text()
+    # search key word 'DESCRIPCIÓN DEL MATERIAL MARCA PRESENTACIÓN P.V.P $' with regex in text var?
+    if re.search(r"ALGODÓN, COMPRESAS Y GASAS", text):
+        process_mc_medical(pdfReader)
+
+    # closing the pdf file object
+    pdfFileObj.close()  
+
+def process_mc_medical(pdf):
+    dic = {'Descripcion': '', 'Precio': ''}
+    for page in pdf.pages:
+        text = page.extract_text()
+        lines = [line for line in text.splitlines() if re.search(r" \d{1,3},\d{2} ", line)]
+        for line in lines:
+            producto = line.split(re.findall(r" \d{1,3},\d{2} ", line)[0])[0]
+            producto = " ".join(producto.split())
+            precio = re.findall(r" \d{1,3},\d{2} ", line)[0]
+            if dic['Descripcion'] != '':
+                dic['Descripcion'].append(producto)
+            else:
+                dic['Descripcion'] = [producto]
+            if dic['Precio'] != '':
+                dic['Precio'].append(float(precio.strip().replace(',','.')))
+            else:
+                dic['Precio'] = [float(precio.strip().replace(',','.'))]
+    df = pd.DataFrame.from_dict(dic)
+    df['Proveedor'] = 'MC Medical'
+    df.to_csv ('./temp/processed_csv/MC MEDICAL.csv', index=False)
+
+def name_drog_excel(data):
     data_iloc1 = set(x for x in data.iloc[1])
     data_iloc6 = set(x for x in data.iloc[6])
     data_iloc10 = set(x for x in data.iloc[10])
@@ -166,7 +207,6 @@ def prepare_final_csv(method='off'):
 
     transform_data()
     if os.path.exists('./temp/raw_csv/'):
-        list_not_found = []
         if not os.listdir('./temp/raw_csv/'):
             return Exception('No se encontraron archivos en la carpeta ./temp/raw_csv/')
         # Get all the files in temp/raw_csv folder
@@ -186,8 +226,6 @@ def prepare_final_csv(method='off'):
                 process_plus_medical()
             elif file_name == 'Sajja_Medic':
                 process_sajja()
-            else:
-                list_not_found.append(file_name)
     # If not files in ('./temp/processed_csv/') folder break the function
     if not os.listdir('./temp/processed_csv/'):
         return Exception('No se encontraron archivos en la carpeta ./temp/processed_csv/')

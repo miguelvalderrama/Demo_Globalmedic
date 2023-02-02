@@ -41,5 +41,3 @@ def create_table(query):
     cursor.execute(query)
     db.commit()
     db.close()
-
-update_products_wt_description()
